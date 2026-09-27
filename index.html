@@ -54,7 +54,7 @@ button.b[aria-pressed="true"]{background:var(--green);border-color:var(--green)}
 </head><body><canvas id="c" tabindex="0" aria-label="관음사 3D 장면"></canvas>
 <div id="labels"></div>
 <header id="title">
-  <div class="eb">江陵布敎堂 觀音寺 · 3D</div>
+  <div class="eb">강릉포교당 · 3D 모형</div>
   <h1>강릉포교당 관음사</h1>
   <p id="hint">드래그 회전 · 휠/핀치 확대 · Shift+드래그 이동</p>
 </header>
@@ -413,8 +413,8 @@ function tree(x,z,s){const g=new T.Group();const t=new T.Mesh(new T.CylinderGeom
   g.position.set(x,0,z);scene.add(g);addCol(x-.5,x+.5,z-.5,z+.5);}
 tree(24.5,6,1.3);tree(-21.5,-12,.9);tree(-21.5,12,.8);
 /* 주변 도시 건물 (간판 없음) */
-[[-36,-4,14,26,24,'#b9bcbf'],[-30,-36,20,14,32,'#e3e3e0'],[-12,-40,14,12,20,'#cfd2d4'],[2,-42,14,10,26,'#d9dadb'],[34,-34,18,14,14,'#c9c3b8'],[40,-6,14,22,11,'#d8d8d4'],
- [38,24,16,16,17,'#bfc4c7'],[-8,36,34,10,12,'#d4cfc4'],[-38,28,14,16,21,'#c6c9cc'],[22,40,18,12,9,'#e0dcd2']].forEach(([x,z,w,d,h,c])=>{
+[[-36,-4,14,26,24,'#b9bcbf'],[-30,-36,20,14,32,'#e3e3e0'],[-12,-40,14,12,20,'#cfd2d4'],[2,-42,14,10,26,'#d9dadb'],[34,-34,18,14,14,'#c9c3b8'],[47,-6,14,22,11,'#d8d8d4'],
+ [46,30,16,16,17,'#bfc4c7'],[-8,44,34,10,12,'#d4cfc4'],[-38,28,14,16,21,'#c6c9cc'],[22,40,18,12,9,'#e0dcd2']].forEach(([x,z,w,d,h,c])=>{
   const t=cityTex(c,'#3d4a55');t.repeat.set(Math.round(w/3),Math.round(h/3.2));const t2=t.clone();t2.needsUpdate=true;t2.repeat.set(Math.round(d/3),Math.round(h/3.2));
   const mA=std({map:t,emissiveMap:t,emissive:0x000000}),mB=std({map:t2,emissiveMap:t2,emissive:0x000000});cityMats.push(mA,mB);
   const b=new T.Mesh(new T.BoxGeometry(w,h,d),[mB,mB,std({color:0x8d9194}),M.dark,mA,mA]);b.position.set(x,h/2,z);b.castShadow=true;scene.add(b);});
@@ -438,9 +438,9 @@ const INFO={
   brick:{t:'4층 벽돌 건물',d:'반원 창과 원형 창이 줄지은 붉은 벽돌 건물. 2층 난간 아래에 "강릉포교당관음사 신도회 행복나눔봉사회" 현수막이 걸려 있다.'},
   geum:{t:'금천관',d:'벽돌 건물 동쪽 끝, 아치형 캐노피가 달린 출입구. 옆에 컨테이너가 두 단으로 쌓여 있다.'}
 };
-const LBL=[{k:'hall',p:[HX,15,0],r:34},{k:'yard',p:[7.5,2.6,3.5],r:22},{k:'brick',p:[10,17.5,-24],r:40},{k:'geum',p:[25.2,5.2,-15.5],r:18}];
+const LBL=[{k:'hall',p:[HX,15,0],r:34},{k:'yard',p:[7.5,2.6,3.5],r:22},{k:'brick',n:'벽돌 건물',p:[10,17.5,-24],r:40},{k:'geum',p:[25.2,5.2,-15.5],r:18}];
 const labelsEl=document.getElementById('labels');
-LBL.forEach(l=>{const b=document.createElement('button');b.className='lbl';b.textContent=INFO[l.k].t.split(' ')[0];b.addEventListener('click',()=>focusOn(l));labelsEl.appendChild(b);l.el=b;l.v=new T.Vector3(...l.p);});
+LBL.forEach(l=>{const b=document.createElement('button');b.className='lbl';b.textContent=l.n||INFO[l.k].t.split(' ')[0];b.addEventListener('click',()=>focusOn(l));labelsEl.appendChild(b);l.el=b;l.v=new T.Vector3(...l.p);});
 const iName=document.getElementById('iName'),iText=document.getElementById('iText'),infoEl=document.getElementById('info');let curInfo='';
 function setInfo(k){if(k===curInfo)return;curInfo=k;iName.textContent=INFO[k].t;iText.textContent=INFO[k].d;}
 
