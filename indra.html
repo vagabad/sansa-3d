@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>인드라망 악기</title>
+<style>
+:root{--bg:#0a0d14;--ink:#e8e2d0;--gold:#d9a441}
+@media (prefers-color-scheme:light){:root{--bg:#0a0d14}}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Noto Serif KR",serif;overflow:hidden}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+#t{position:fixed;left:16px;top:14px;pointer-events:none}
+#t h1{margin:0;font-size:20px;letter-spacing:.08em;color:var(--gold)}
+#t p{margin:4px 0 0;font-size:13px;opacity:.7;max-width:34em;line-height:1.5}
+#n{position:fixed;left:0;right:0;bottom:14px;text-align:center;font-size:12px;opacity:.5;pointer-events:none}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="t"><h1>인드라망 악기</h1><p>구슬 하나를 건드리면 그 빛이 모든 구슬에 비치고, 비친 빛이 다시 서로를 비춥니다. 가까운 구슬은 먼저, 먼 구슬은 나중에 울립니다. 빈 곳을 눌러도 가장 가까운 구슬이 울립니다.</p></div>
+<div id="n">一中一切多中一 — 하나 안에 일체가 있고, 일체 안에 하나가 있다 (화엄경·법성게)</div>
+<script>
+(()=>{
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+let W,H,DPR;
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;g.setTransform(DPR,0,0,DPR,0,0);layout();}
+let J=[];                       // jewels
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+function layout(){
+  seed=7;J=[];const N=Math.round(Math.min(46,Math.max(22,W*H/20000))),minD=Math.min(W,H)/ (Math.sqrt(N)*1.15);
+  let tries=0;
+  while(J.length<N&&tries++<6000){
+    const x=60+rnd()*(W-120),y=90+rnd()*(H-150);
+    if(J.every(j=>Math.hypot(j.x-x,j.y-y)>minD)){
+      J.push({x,y,r:11+rnd()*9,hue:35+rnd()*300|0,glow:0,ph:rnd()*6.28});
+    }
+  }
+  // pentatonic note by height (high on top)
+  const sc=[0,2,4,7,9];
+  J.forEach(j=>{const k=Math.floor((1-(j.y-90)/(H-150))*15);j.f=196*Math.pow(2,(sc[((k%5)+5)%5]+12*Math.floor(k/5))/12);});
+}
+let AC=null;
+function ac(){if(!AC){const C=window.AudioContext||window.webkitAudioContext;if(C){AC=new C();const cmp=AC.createDynamicsCompressor();cmp.connect(AC.destination);AC.out=cmp;
+  // simple feedback reverb
+  const d=AC.createDelay(1),fb=AC.createGain(),wet=AC.createGain();d.delayTime.value=.23;fb.gain.value=.38;wet.gain.value=.35;AC.rev=d;d.connect(fb).connect(d);d.connect(wet).connect(cmp);}}
+  if(AC&&AC.state==='suspended')AC.resume();return AC;}
+function chime(f,amp,when){const a=AC;if(!a)return;const t=a.currentTime+when;
+  [[1,1,2.6],[2.7,.28,1.4],[5.1,.1,.7]].forEach(([r,gn,dur])=>{
+    const o=a.createOscillator(),e=a.createGain();o.type='sine';o.frequency.value=f*r;
+    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(.16*amp*gn,t+.008);e.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(e);e.connect(a.out);e.connect(a.rev);o.start(t);o.stop(t+dur+.05);});}
+// light events: {src, dst, t0, amp, depth}
+let lastChime=0;const SPEED=420;               // px/s  : 빛이 퍼지는 속도
+let ev=[],rings=[];
+function ring(i,amp,depth,delay){
+  const j=J[i];
+  setTimeout(()=>{j.glow=Math.min(1.4,j.glow+amp);const nw=performance.now();if(amp>.08&&nw-lastChime>18){lastChime=nw;chime(j.f,amp,0);}rings.push({x:j.x,y:j.y,t:0,hue:j.hue,a:amp});
+    if(depth>0){let list=J.map((k,m)=>[m,Math.hypot(k.x-j.x,k.y-j.y)]).filter(p=>p[0]!==i).sort((p,q)=>p[1]-q[1]);
+      if(depth===1)list=list.slice(0,3);          // 두 번째 되비침은 이웃 구슬로만
+      list.forEach(([m,d])=>ev.push({a:i,b:m,t:0,d,amp:amp*.5*Math.max(.25,1-d/Math.hypot(W,H)),depth:depth-1}));}
+  },delay*1000);
+}
+// each travelling light fires the receiving jewel when it arrives
+function step(dt){
+  for(const e of ev){const prev=e.t;e.t+=dt;if(prev*SPEED<e.d&&e.t*SPEED>=e.d){e.arrived=true;if(e.amp>.05)ring(e.b,e.amp,e.depth,0);}}
+  ev=ev.filter(e=>!e.arrived&&e.t*SPEED<e.d+1);
+  if(ev.length>900)ev.splice(0,ev.length-900);
+  for(const r of rings)r.t+=dt;rings=rings.filter(r=>r.t<2);
+  J.forEach(j=>j.glow*=Math.pow(.25,dt));
+}
+function draw(now){
+  g.clearRect(0,0,W,H);
+  const gr=g.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.7);gr.addColorStop(0,'#141a2c');gr.addColorStop(1,'#07090f');g.fillStyle=gr;g.fillRect(0,0,W,H);
+  // threads
+  g.lineWidth=1;
+  for(let i=0;i<J.length;i++){const a=J[i];const near=J.map((b,k)=>[k,Math.hypot(a.x-b.x,a.y-b.y)]).sort((p,q)=>p[1]-q[1]).slice(1,4);
+    for(const [k] of near){const b=J[k];g.strokeStyle=`rgba(217,164,65,${.10+.25*Math.max(a.glow,b.glow)})`;g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();}}
+  // travelling light
+  for(const e of ev){const a=J[e.a],b=J[e.b],p=Math.min(1,e.t*SPEED/e.d);const x=a.x+(b.x-a.x)*p,y=a.y+(b.y-a.y)*p;
+    g.fillStyle=`hsla(${a.hue},80%,75%,${Math.min(.6,e.amp*1.4)})`;g.beginPath();g.arc(x,y,1.6,0,6.28);g.fill();}
+  // rings
+  for(const r of rings){g.strokeStyle=`hsla(${r.hue},80%,70%,${(1-r.t/2)*.35*Math.min(1,r.a*2)})`;g.lineWidth=1.5;g.beginPath();g.arc(r.x,r.y,r.t*SPEED*.35,0,6.28);g.stroke();}
+  // jewels, each containing small reflections of every other jewel
+  for(const j of J){
+    const br=.25+j.glow*.6;
+    const halo=g.createRadialGradient(j.x,j.y,0,j.x,j.y,j.r*3.2);halo.addColorStop(0,`hsla(${j.hue},85%,70%,${.12+j.glow*.5})`);halo.addColorStop(1,'transparent');
+    g.fillStyle=halo;g.beginPath();g.arc(j.x,j.y,j.r*3.2,0,6.28);g.fill();
+    const body=g.createRadialGradient(j.x-j.r*.3,j.y-j.r*.35,1,j.x,j.y,j.r);body.addColorStop(0,`hsla(${j.hue},70%,${70+j.glow*20}%,${.55+br*.4})`);body.addColorStop(1,`hsla(${j.hue},70%,18%,.9)`);
+    g.fillStyle=body;g.beginPath();g.arc(j.x,j.y,j.r,0,6.28);g.fill();
+    g.strokeStyle=`hsla(${j.hue},60%,80%,.5)`;g.lineWidth=1;g.stroke();
+    g.save();g.beginPath();g.arc(j.x,j.y,j.r-1,0,6.28);g.clip();
+    for(const k of J){if(k===j)continue;const dx=k.x-j.x,dy=k.y-j.y,d=Math.hypot(dx,dy);
+      const px=j.x+dx/d*j.r*.62*(1-Math.min(.6,d/900)),py=j.y+dy/d*j.r*.62*(1-Math.min(.6,d/900));
+      const lit=k.glow;g.fillStyle=`hsla(${k.hue},90%,${65+lit*25}%,${.18+lit*.8})`;g.beginPath();g.arc(px,py,.8+lit*1.6,0,6.28);g.fill();}
+    g.restore();
+  }
+}
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;step(dt);draw(now);requestAnimationFrame(loop);}
+function hit(x,y){let b=0,bd=1e9;J.forEach((j,i)=>{const d=Math.hypot(j.x-x,j.y-y);if(d<bd){bd=d;b=i;}});return b;}
+cv.addEventListener('pointerdown',e=>{ac();ring(hit(e.clientX,e.clientY),1,2,0);});
+addEventListener('resize',resize);
+resize();requestAnimationFrame(loop);
+})();
+</script></body></html>
